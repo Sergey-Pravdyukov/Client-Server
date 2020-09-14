@@ -23,6 +23,10 @@ prevents the Winsock.h from being included by the Windows.h header.
 #pragma comment (lib, "Mswsock.lib")
 #pragma comment (lib, "AdvApi32.lib")
 
+#define DEFAULT_PORT "27015"
+
+struct addrinfo *addrinfoListPtr = NULL, *ptr = NULL, hints;
+
 void initWinsock() {
 	WSADATA wsaData;
 
@@ -35,8 +39,70 @@ void initWinsock() {
 	printf("Winsock initialized.\n");
 }
 
-int main() {
+SOCKET connectSocket(char*& hostname) {
+	ZeroMemory(&hints, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = IPPROTO_TCP;
+
+	int getaddrinfoStatus = getaddrinfo(hostname, 
+		DEFAULT_PORT, 
+		&hints, 
+		&addrinfoListPtr);
+	if (getaddrinfoStatus != 0) {
+		printf("getaddrinfo failed: %d\n", getaddrinfoStatus);
+		WSACleanup();
+		exit(1);
+	}
+
+	SOCKET ConnectSocket = INVALID_SOCKET;
+	
+	// Attempt to connect to an address until one succeeds
+	for (ptr = addrinfoListPtr; ptr != NULL; ptr = ptr->ai_next) {
+
+		// Create a SOCKET for connecting to server
+		ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
+		if (ConnectSocket == INVALID_SOCKET) {
+			printf("socket failed with error: %ld\n", WSAGetLastError());
+			WSACleanup();
+			exit(1);
+		}
+
+		// Connect to server.
+		int connectStatus = connect(ConnectSocket, 
+			ptr->ai_addr, 
+			(int)ptr->ai_addrlen);
+		if (connectStatus == SOCKET_ERROR) {
+			closesocket(ConnectSocket);
+			ConnectSocket = INVALID_SOCKET;
+			continue;
+		}
+		break;
+	}
+
+	freeaddrinfo(addrinfoListPtr);
+
+	if (ConnectSocket == INVALID_SOCKET) {
+		printf("Unable to connect to server!\n");
+		WSACleanup();
+		exit(1);
+	}
+
+	printf("Socket connected.\n");
+	return ConnectSocket;
+}
+
+int main(int argc, char *argv[]) {
+
+	// Validate the parameters
+	if (argc != 2) {
+		printf("usage: %s server-name\n", argv[0]);
+		return 1;
+	}
+
 	initWinsock();
+	SOCKET ConnectSocket = connectSocket(argv[1]);
+
 
 	Sleep(1000);
 
