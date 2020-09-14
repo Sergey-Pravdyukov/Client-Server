@@ -24,6 +24,7 @@ The #pragma comment indicates to the linker that the Ws2_32.lib file is needed.
 #pragma comment(lib, "Ws2_32.lib")
 
 #define DEFAULT_PORT "27015"
+#define DEFAULT_BUFLEN 512
 
 struct addrinfo *addrinfoListPtr = NULL, hints;
 
@@ -115,6 +116,54 @@ SOCKET acceptConnection(SOCKET& ListenSocket) {
 	return ClientSocket;
 }
 
+void receiveAndSendData(SOCKET ClientSocket) {
+	char recvbuf[DEFAULT_BUFLEN];
+	int recvbuflen = DEFAULT_BUFLEN;
+	int bytesReceived = 0;
+
+	// Receive until the peer shuts down the connection
+	do {
+
+		bytesReceived = recv(ClientSocket, recvbuf, recvbuflen, 0);
+		if (bytesReceived > 0) {
+			printf("Bytes received: %d\n", bytesReceived);
+
+			// Echo the buffer back to the sender
+			int bytesSent = send(ClientSocket, recvbuf, bytesReceived, 0);
+			if (bytesSent == SOCKET_ERROR) {
+				printf("send failed: %d\n", WSAGetLastError());
+				closesocket(ClientSocket);
+				WSACleanup();
+				exit(1);
+			}
+			printf("Bytes sent: %d\n", bytesSent);
+		}
+		else if (bytesReceived == 0)
+			printf("Connection closing...\n");
+		else {
+			printf("recv failed: %d\n", WSAGetLastError());
+			closesocket(ClientSocket);
+			WSACleanup();
+			exit(1);
+		}
+
+	} while (bytesReceived > 0);
+}
+
+void disconnectAndShutdown(SOCKET clientSocket) {
+	// shutdown the send half of the connection since no more data will be sent
+	int shutdownStatus = shutdown(clientSocket, SD_SEND);
+	if (shutdownStatus == SOCKET_ERROR) {
+		printf("shutdown failed: %d\n", WSAGetLastError());
+		closesocket(clientSocket);
+		WSACleanup();
+		exit(1);
+	}
+	// cleanup
+	closesocket(clientSocket);
+	WSACleanup();
+}
+
 int main(int argc, char* argv[]) {
 
 	initWinsock();
@@ -122,9 +171,10 @@ int main(int argc, char* argv[]) {
 	bindSocket(ListenSocket);
 	listenSocket(ListenSocket);
 	SOCKET ClientSocket = acceptConnection(ListenSocket);
+	receiveAndSendData(ClientSocket);
+	disconnectAndShutdown(ClientSocket);
 
-
-	Sleep(1000);
+	Sleep(10000);
 
 	return 0;
 }

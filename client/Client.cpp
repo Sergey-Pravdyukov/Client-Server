@@ -24,6 +24,7 @@ prevents the Winsock.h from being included by the Windows.h header.
 #pragma comment (lib, "AdvApi32.lib")
 
 #define DEFAULT_PORT "27015"
+#define DEFAULT_BUFLEN 512
 
 struct addrinfo *addrinfoListPtr = NULL, *ptr = NULL, hints;
 
@@ -92,6 +93,52 @@ SOCKET connectSocket(char*& hostname) {
 	return ConnectSocket;
 }
 
+void sendAndReceiveMsg(SOCKET ConnectSocket) {
+
+	const char *sendbuf = "this is a test";
+	char recvbuf[DEFAULT_BUFLEN];
+	int recvbuflen = DEFAULT_BUFLEN;
+
+	// Send an initial buffer
+	int bytesSent = send(ConnectSocket, sendbuf, (int)strlen(sendbuf), 0);
+	if (bytesSent == SOCKET_ERROR) {
+		printf("send failed with error: %d\n", WSAGetLastError());
+		closesocket(ConnectSocket);
+		WSACleanup();
+		exit(1);
+	}
+
+	printf("Bytes Sent: %ld\n", bytesSent);
+
+	// shutdown the connection since no more data will be sent
+	int shutdownStatus = shutdown(ConnectSocket, SD_SEND);
+	if (shutdownStatus == SOCKET_ERROR) {
+		printf("shutdown failed with error: %d\n", WSAGetLastError());
+		closesocket(ConnectSocket);
+		WSACleanup();
+		exit(1);
+	}
+
+	int bytesReceived = 0;
+
+	// Receive until the peer closes the connection
+	do {
+
+		bytesReceived = recv(ConnectSocket, recvbuf, recvbuflen, 0);
+		if (bytesReceived > 0)
+			printf("Bytes received: %d\n", bytesReceived);
+		else if (bytesReceived == 0)
+			printf("Connection closed\n");
+		else
+			printf("recv failed with error: %d\n", WSAGetLastError());
+
+	} while (bytesReceived > 0);
+
+	// cleanup
+	closesocket(ConnectSocket);
+	WSACleanup();
+}
+
 int main(int argc, char *argv[]) {
 
 	// Validate the parameters
@@ -102,7 +149,7 @@ int main(int argc, char *argv[]) {
 
 	initWinsock();
 	SOCKET ConnectSocket = connectSocket(argv[1]);
-
+	sendAndReceiveMsg(ConnectSocket);
 
 	Sleep(1000);
 
