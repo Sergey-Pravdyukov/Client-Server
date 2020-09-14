@@ -88,11 +88,22 @@ void bindSocket(SOCKET ListenSocket) {
 	printf("Listen socket binded.\n");
 }
 
+void listenSocket(SOCKET ListenSocket) {
+	if (listen(ListenSocket, SOMAXCONN) == SOCKET_ERROR) {
+		printf("Listen failed with error: %ld\n", WSAGetLastError());
+		closesocket(ListenSocket);
+		WSACleanup();
+		exit(1);
+	}
+	printf("Socket is listening.\n");
+}
+
 int main(int argc, char* argv[]) {
 
 	initWinsock();
 	SOCKET ListenSocket = createSocket();
 	bindSocket(ListenSocket);
+	listenSocket(ListenSocket);
 
 	Sleep(1000);
 
