@@ -98,12 +98,31 @@ void listenSocket(SOCKET ListenSocket) {
 	printf("Socket is listening.\n");
 }
 
+SOCKET acceptConnection(SOCKET ListenSocket) {
+	SOCKET ClientSocket = INVALID_SOCKET;
+
+	// Accept a client socket
+	printf("Waiting for client socket.\n");
+	ClientSocket = accept(ListenSocket, NULL, NULL);
+	if (ClientSocket == INVALID_SOCKET) {
+		printf("accept failed: %d\n", WSAGetLastError());
+		closesocket(ListenSocket);
+		WSACleanup();
+		exit(1);
+	}
+
+	printf("Client Socket was accepted.\n");
+	return ClientSocket;
+}
+
 int main(int argc, char* argv[]) {
 
 	initWinsock();
 	SOCKET ListenSocket = createSocket();
 	bindSocket(ListenSocket);
 	listenSocket(ListenSocket);
+	SOCKET ClientSocket = acceptConnection(ListenSocket);
+
 
 	Sleep(1000);
 
