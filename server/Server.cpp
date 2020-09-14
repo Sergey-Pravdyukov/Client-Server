@@ -25,7 +25,7 @@ The #pragma comment indicates to the linker that the Ws2_32.lib file is needed.
 
 #define DEFAULT_PORT "27015"
 
-struct addrinfo *result = NULL, *addrinfoListPtr = NULL, hints;
+struct addrinfo *addrinfoListPtr = NULL, hints;
 
 void initWinsock() {
 	WSADATA wsaData;
@@ -65,17 +65,34 @@ SOCKET createSocket() {
 		printf("Error at socket(): %ld\n", WSAGetLastError());
 		freeaddrinfo(addrinfoListPtr);
 		WSACleanup();
-		return 1;
+		exit(1);
 	}
 
 	printf("Listen socket created.\n");;
 	return ListenSocket;
 }
 
+void bindSocket(SOCKET ListenSocket) {
+	// Setup the TCP listening socket
+	int bindStatus = bind(ListenSocket, 
+		addrinfoListPtr->ai_addr, 
+		(int)addrinfoListPtr->ai_addrlen);
+	if (bindStatus == SOCKET_ERROR) {
+		printf("bind failed with error: %d\n", WSAGetLastError());
+		freeaddrinfo(addrinfoListPtr);
+		closesocket(ListenSocket);
+		WSACleanup();
+		exit(1);
+	}
+	freeaddrinfo(addrinfoListPtr);
+	printf("Listen socket binded.\n");
+}
+
 int main(int argc, char* argv[]) {
 
 	initWinsock();
 	SOCKET ListenSocket = createSocket();
+	bindSocket(ListenSocket);
 
 	Sleep(1000);
 
