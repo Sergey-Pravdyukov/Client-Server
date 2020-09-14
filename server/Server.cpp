@@ -72,7 +72,7 @@ SOCKET createSocket() {
 	return ListenSocket;
 }
 
-void bindSocket(SOCKET ListenSocket) {
+void bindSocket(SOCKET& ListenSocket) {
 	// Setup the TCP listening socket
 	int bindStatus = bind(ListenSocket, 
 		addrinfoListPtr->ai_addr, 
@@ -88,7 +88,7 @@ void bindSocket(SOCKET ListenSocket) {
 	printf("Listen socket binded.\n");
 }
 
-void listenSocket(SOCKET ListenSocket) {
+void listenSocket(SOCKET& ListenSocket) {
 	if (listen(ListenSocket, SOMAXCONN) == SOCKET_ERROR) {
 		printf("Listen failed with error: %ld\n", WSAGetLastError());
 		closesocket(ListenSocket);
@@ -98,7 +98,7 @@ void listenSocket(SOCKET ListenSocket) {
 	printf("Socket is listening.\n");
 }
 
-SOCKET acceptConnection(SOCKET ListenSocket) {
+SOCKET acceptConnection(SOCKET& ListenSocket) {
 	SOCKET ClientSocket = INVALID_SOCKET;
 
 	// Accept a client socket
