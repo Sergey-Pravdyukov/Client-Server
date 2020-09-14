@@ -23,6 +23,10 @@ The #pragma comment indicates to the linker that the Ws2_32.lib file is needed.
 */
 #pragma comment(lib, "Ws2_32.lib")
 
+#define DEFAULT_PORT "27015"
+
+struct addrinfo *result = NULL, *addrinfoListPtr = NULL, hints;
+
 void initWinsock() {
 	WSADATA wsaData;
 
@@ -35,7 +39,45 @@ void initWinsock() {
 	printf("Winsock initialized.\n");
 }
 
+SOCKET createSocket() {
+	ZeroMemory(&hints, sizeof(hints));
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = IPPROTO_TCP;
+	hints.ai_flags = AI_PASSIVE;
+
+	// Resolve the local address and port to be used by the server
+	int getaddrinfoStatus = getaddrinfo(NULL, 
+		DEFAULT_PORT, 
+		&hints, 
+		&addrinfoListPtr);
+	if (getaddrinfoStatus != 0) {
+		printf("getaddrinfo failed: %d\n", getaddrinfoStatus);
+		WSACleanup();
+		exit(1);
+	}
+
+	SOCKET ListenSocket = INVALID_SOCKET;
+	ListenSocket = socket(addrinfoListPtr->ai_family, 
+		addrinfoListPtr->ai_socktype, 
+		addrinfoListPtr->ai_protocol);
+	if (ListenSocket == INVALID_SOCKET) {
+		printf("Error at socket(): %ld\n", WSAGetLastError());
+		freeaddrinfo(addrinfoListPtr);
+		WSACleanup();
+		return 1;
+	}
+
+	printf("Listen socket created.\n");;
+	return ListenSocket;
+}
+
 int main(int argc, char* argv[]) {
+
+	initWinsock();
+	SOCKET ListenSocket = createSocket();
+
+	Sleep(1000);
 
 	return 0;
 }
