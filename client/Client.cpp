@@ -16,6 +16,7 @@ prevents the Winsock.h from being included by the Windows.h header.
 #include <ws2tcpip.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <iostream>
 
 
 // Need to link with Ws2_32.lib, Mswsock.lib, and Advapi32.lib
@@ -40,26 +41,31 @@ void initWinsock() {
 	printf("Winsock initialized.\n");
 }
 
-SOCKET connectSocket(char*& hostname) {
+addrinfo* getAddrinfoList(char*& hostname) {
 	ZeroMemory(&hints, sizeof(hints));
-	hints.ai_family = AF_UNSPEC;
+	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
 
-	int getaddrinfoStatus = getaddrinfo(hostname, 
-		DEFAULT_PORT, 
-		&hints, 
+	int getaddrinfoStatus = getaddrinfo(hostname,
+		DEFAULT_PORT,
+		&hints,
 		&addrinfoListPtr);
 	if (getaddrinfoStatus != 0) {
 		printf("getaddrinfo failed: %d\n", getaddrinfoStatus);
 		WSACleanup();
 		exit(1);
 	}
+	printf("got addrinfoList.\n");
+	return addrinfoListPtr;
+}
+
+SOCKET connectSocket(addrinfo* addrinfoList) {
 
 	SOCKET ConnectSocket = INVALID_SOCKET;
 	
 	// Attempt to connect to an address until one succeeds
-	for (ptr = addrinfoListPtr; ptr != NULL; ptr = ptr->ai_next) {
+	for (ptr = addrinfoList; ptr != NULL; ptr = ptr->ai_next) {
 
 		// Create a SOCKET for connecting to server
 		ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
@@ -81,8 +87,6 @@ SOCKET connectSocket(char*& hostname) {
 		break;
 	}
 
-	freeaddrinfo(addrinfoListPtr);
-
 	if (ConnectSocket == INVALID_SOCKET) {
 		printf("Unable to connect to server!\n");
 		WSACleanup();
@@ -93,21 +97,32 @@ SOCKET connectSocket(char*& hostname) {
 	return ConnectSocket;
 }
 
-void sendAndReceiveMsg(SOCKET ConnectSocket) {
-
-	const char *sendbuf = "this is a test";
-	char recvbuf[DEFAULT_BUFLEN];
-	int recvbuflen = DEFAULT_BUFLEN;
-
-	// Send an initial buffer
-	int bytesSent = send(ConnectSocket, sendbuf, (int)strlen(sendbuf), 0);
+int sendData(SOCKET ConnectSocket, const char* sendbuf, int sendbuflen) {
+	int bytesSent = send(ConnectSocket, sendbuf, sendbuflen , 0);
 	if (bytesSent == SOCKET_ERROR) {
 		printf("send failed with error: %d\n", WSAGetLastError());
 		closesocket(ConnectSocket);
 		WSACleanup();
 		exit(1);
 	}
+	return bytesSent;
+}
 
+int receiveData(SOCKET ConnectSocket, char* recvbuf, int recvbuflen) {
+	int bytesRecv = recv(ConnectSocket, recvbuf, recvbuflen, 0);
+	if (bytesRecv < 0) {
+		printf("recv failed with error: %d\n", WSAGetLastError());
+		exit(1);
+	}
+	return bytesRecv;
+}
+
+void sendAndReceiveMsg(SOCKET ConnectSocket, char* sendbuf) {
+	char recvbuf[DEFAULT_BUFLEN];
+	int recvbuflen = DEFAULT_BUFLEN;
+
+	// Send an initial buffer
+	int bytesSent = sendData(ConnectSocket, sendbuf, (int)strlen(sendbuf));
 	printf("Bytes Sent: %ld\n", bytesSent);
 
 	// shutdown the connection since no more data will be sent
@@ -120,23 +135,18 @@ void sendAndReceiveMsg(SOCKET ConnectSocket) {
 	}
 
 	int bytesReceived = 0;
-
 	// Receive until the peer closes the connection
 	do {
-
-		bytesReceived = recv(ConnectSocket, recvbuf, recvbuflen, 0);
+		bytesReceived = receiveData(ConnectSocket, recvbuf, recvbuflen);
 		if (bytesReceived > 0)
 			printf("Bytes received: %d\n", bytesReceived);
 		else if (bytesReceived == 0)
 			printf("Connection closed\n");
-		else
-			printf("recv failed with error: %d\n", WSAGetLastError());
-
 	} while (bytesReceived > 0);
 
 	// cleanup
+	printf("Message received.\n");
 	closesocket(ConnectSocket);
-	WSACleanup();
 }
 
 int main(int argc, char *argv[]) {
@@ -148,10 +158,18 @@ int main(int argc, char *argv[]) {
 	}
 
 	initWinsock();
-	SOCKET ConnectSocket = connectSocket(argv[1]);
-	sendAndReceiveMsg(ConnectSocket);
+	addrinfo *addrinfoList = getAddrinfoList(argv[1]);
+	while(true) {
+		char message[161];
+		fgets(message, 161, stdin);
+		std::cout << message << std::endl;
 
-	Sleep(1000);
+		SOCKET ConnectSocket = connectSocket(addrinfoList);
+		sendAndReceiveMsg(ConnectSocket, message);
+	}
+
+	freeaddrinfo(addrinfoList);
+	WSACleanup();
 
 	return 0;
 }

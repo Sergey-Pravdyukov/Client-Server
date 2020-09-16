@@ -116,7 +116,30 @@ SOCKET acceptConnection(SOCKET& ListenSocket) {
 	return ClientSocket;
 }
 
+int sendData(SOCKET& ClientSocket, char* recvbuf, int& bytesReceived) {
+	int bytesSent = send(ClientSocket, recvbuf, bytesReceived, 0);
+	if (bytesSent == SOCKET_ERROR) {
+		printf("send failed: %d\n", WSAGetLastError());
+		closesocket(ClientSocket);
+		WSACleanup();
+		exit(1);
+	}
+	return bytesSent;
+}
+
+int receiveData(SOCKET ClientSocket, char* recvbuf, int recvbuflen) {
+	int bytesReceived = recv(ClientSocket, recvbuf, recvbuflen, 0);
+	if (bytesReceived < 0) {
+		printf("recv failed: %d\n", WSAGetLastError());
+		closesocket(ClientSocket);
+		WSACleanup();
+		exit(1);
+	}
+	return bytesReceived;
+}
+
 void receiveAndSendData(SOCKET ClientSocket) {
+	printf("RASD\n");
 	char recvbuf[DEFAULT_BUFLEN];
 	int recvbuflen = DEFAULT_BUFLEN;
 	int bytesReceived = 0;
@@ -124,28 +147,16 @@ void receiveAndSendData(SOCKET ClientSocket) {
 	// Receive until the peer shuts down the connection
 	do {
 
-		bytesReceived = recv(ClientSocket, recvbuf, recvbuflen, 0);
+		bytesReceived = receiveData(ClientSocket, recvbuf, recvbuflen);
 		if (bytesReceived > 0) {
 			printf("Bytes received: %d\n", bytesReceived);
 
 			// Echo the buffer back to the sender
-			int bytesSent = send(ClientSocket, recvbuf, bytesReceived, 0);
-			if (bytesSent == SOCKET_ERROR) {
-				printf("send failed: %d\n", WSAGetLastError());
-				closesocket(ClientSocket);
-				WSACleanup();
-				exit(1);
-			}
+			int bytesSent = sendData(ClientSocket, recvbuf, bytesReceived);
 			printf("Bytes sent: %d\n", bytesSent);
 		}
 		else if (bytesReceived == 0)
 			printf("Connection closing...\n");
-		else {
-			printf("recv failed: %d\n", WSAGetLastError());
-			closesocket(ClientSocket);
-			WSACleanup();
-			exit(1);
-		}
 
 	} while (bytesReceived > 0);
 }
@@ -161,7 +172,6 @@ void disconnectAndShutdown(SOCKET clientSocket) {
 	}
 	// cleanup
 	closesocket(clientSocket);
-	WSACleanup();
 }
 
 int main(int argc, char* argv[]) {
@@ -170,11 +180,14 @@ int main(int argc, char* argv[]) {
 	SOCKET ListenSocket = createSocket();
 	bindSocket(ListenSocket);
 	listenSocket(ListenSocket);
-	SOCKET ClientSocket = acceptConnection(ListenSocket);
-	receiveAndSendData(ClientSocket);
-	disconnectAndShutdown(ClientSocket);
-
-	Sleep(10000);
+	SOCKET ClientSocket = INVALID_SOCKET;
+	while(true) {
+		ClientSocket = acceptConnection(ListenSocket);
+		receiveAndSendData(ClientSocket);
+		disconnectAndShutdown(ClientSocket);
+	}
+	
+	WSACleanup();
 
 	return 0;
 }
