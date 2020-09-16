@@ -18,6 +18,8 @@ prevents the Winsock.h from being included by the Windows.h header.
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <algorithm>
+
 /*
 The #pragma comment indicates to the linker that the Ws2_32.lib file is needed.
 */
@@ -139,8 +141,8 @@ int receiveData(SOCKET ClientSocket, char* recvbuf, int recvbuflen) {
 }
 
 void receiveAndSendData(SOCKET ClientSocket) {
-	printf("RASD\n");
-	char recvbuf[DEFAULT_BUFLEN];
+	char* recvbuf = new char[DEFAULT_BUFLEN];
+	std::fill(recvbuf, recvbuf + DEFAULT_BUFLEN, '\0');
 	int recvbuflen = DEFAULT_BUFLEN;
 	int bytesReceived = 0;
 
@@ -149,8 +151,11 @@ void receiveAndSendData(SOCKET ClientSocket) {
 
 		bytesReceived = receiveData(ClientSocket, recvbuf, recvbuflen);
 		if (bytesReceived > 0) {
-			printf("Bytes received: %d\n", bytesReceived);
+			printf("\nBytes received: %d\nMessage received: %s\n\n", 
+				bytesReceived, 
+				recvbuf);
 
+			recvbuf[bytesReceived - 1] = '\n';
 			// Echo the buffer back to the sender
 			int bytesSent = sendData(ClientSocket, recvbuf, bytesReceived);
 			printf("Bytes sent: %d\n", bytesSent);
@@ -159,6 +164,8 @@ void receiveAndSendData(SOCKET ClientSocket) {
 			printf("Connection closing...\n");
 
 	} while (bytesReceived > 0);
+
+	delete[] recvbuf;
 }
 
 void disconnectAndShutdown(SOCKET clientSocket) {

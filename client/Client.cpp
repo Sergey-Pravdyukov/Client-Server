@@ -16,8 +16,8 @@ prevents the Winsock.h from being included by the Windows.h header.
 #include <ws2tcpip.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <iostream>
 
+#include <algorithm>
 
 // Need to link with Ws2_32.lib, Mswsock.lib, and Advapi32.lib
 #pragma comment (lib, "Ws2_32.lib")
@@ -118,7 +118,8 @@ int receiveData(SOCKET ConnectSocket, char* recvbuf, int recvbuflen) {
 }
 
 void sendAndReceiveMsg(SOCKET ConnectSocket, char* sendbuf) {
-	char recvbuf[DEFAULT_BUFLEN];
+	char* recvbuf = new char[DEFAULT_BUFLEN];
+	std::fill(recvbuf, recvbuf + DEFAULT_BUFLEN, '\0');
 	int recvbuflen = DEFAULT_BUFLEN;
 
 	// Send an initial buffer
@@ -139,13 +140,15 @@ void sendAndReceiveMsg(SOCKET ConnectSocket, char* sendbuf) {
 	do {
 		bytesReceived = receiveData(ConnectSocket, recvbuf, recvbuflen);
 		if (bytesReceived > 0)
-			printf("Bytes received: %d\n", bytesReceived);
+			printf("\nBytes received: %d\nMessage received: %s\n", 
+				bytesReceived,
+				recvbuf);
 		else if (bytesReceived == 0)
 			printf("Connection closed\n");
 	} while (bytesReceived > 0);
 
 	// cleanup
-	printf("Message received.\n");
+	delete[] recvbuf;
 	closesocket(ConnectSocket);
 }
 
@@ -160,12 +163,14 @@ int main(int argc, char *argv[]) {
 	initWinsock();
 	addrinfo *addrinfoList = getAddrinfoList(argv[1]);
 	while(true) {
-		char message[161];
-		fgets(message, 161, stdin);
-		std::cout << message << std::endl;
+		printf("Type your message:");
+		char* message = new char[DEFAULT_BUFLEN];
+		std::fill(message, message + DEFAULT_BUFLEN, '\0');
+		fgets(message, DEFAULT_BUFLEN, stdin);
 
 		SOCKET ConnectSocket = connectSocket(addrinfoList);
 		sendAndReceiveMsg(ConnectSocket, message);
+		delete[] message;
 	}
 
 	freeaddrinfo(addrinfoList);
